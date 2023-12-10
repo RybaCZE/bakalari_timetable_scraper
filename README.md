@@ -44,7 +44,7 @@ foreach (var dayItem in dayItems) {
 *Note: Ensure that the provided URL is a valid Bakalari timetable URL.*
 
 ### Dependencies
-2. HtmlAgilityPack
-3. System.Net
-4. System.Text.RegularExpressions
-50 System.Net.Http
+1. HtmlAgilityPack
+2. System.Net
+3. System.Text.RegularExpressions
+4 System.Net.Http
