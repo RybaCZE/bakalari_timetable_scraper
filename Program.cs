@@ -3,9 +3,10 @@ using System.Net;
 using System.Text.RegularExpressions;
 
 public class WebScraper {
-    public async Task<List<string>> scrape_website(string url, string searchString) {
+    public async Task<List<string>> scrape_website(string url) {
         // Scrape the website and return a list of div contents
         //the main and only needed method outside of this class
+        string searchString = "pink ";
         var httpClient = new HttpClient();
         var html = await httpClient.GetStringAsync(url);
 
@@ -34,10 +35,9 @@ public class WebScraper {
         if (!(url.ToLower().Contains("/timetable/public/actual/") && url.Contains("bakalar"))) {
             throw new ArgumentException("The URL must be a valid Bakalari timetable URL.");
         }
-        string searchString = "pink ";
-        var divc_ontents = await scrape_website(url, searchString);
+        var divc_ontents = await scrape_website(url);
         url = url.Replace("Actual", "Next"); // Replace "Actual" with "Next" in the URL
-        var divc_ontents2 = await scrape_website(url, searchString);
+        var divc_ontents2 = await scrape_website(url);
         divc_ontents.AddRange(divc_ontents2);
 
         DayItem[] dayItems = new DayItem[divc_ontents.Count];
