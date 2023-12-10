@@ -47,4 +47,4 @@ foreach (var dayItem in dayItems) {
 1. HtmlAgilityPack
 2. System.Net
 3. System.Text.RegularExpressions
-4 System.Net.Http
+4. System.Net.Http
