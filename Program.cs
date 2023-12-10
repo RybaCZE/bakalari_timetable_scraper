@@ -2,128 +2,120 @@
 using System.Net;
 using System.Text.RegularExpressions;
 
-
-
 public class WebScraper {
-    public async Task<List<string>> ScrapeWebsite(string url, string searchString) {
+    public async Task<List<string>> scrape_website(string url, string searchString) {
+        // Scrape the website and return a list of div contents
+        //the main and only needed method outside of this class
         var httpClient = new HttpClient();
         var html = await httpClient.GetStringAsync(url);
 
         var document = new HtmlDocument();
         document.LoadHtml(html);
 
-        var pinkDivs = document.DocumentNode.Descendants("div")
+        var pink_divs = document.DocumentNode.Descendants("div")
             .Where(d => d.Attributes["class"]?.Value.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true);
 
-        var divContents = new List<string>();
-        foreach (var pinkDiv in pinkDivs) {
+        var divc_ontents = new List<string>();
+        foreach (var pinkDiv in pink_divs) {
             string divContent = pinkDiv.OuterHtml;
             int indexOfDayFlexStart = divContent.IndexOf("<div class=\"day-flex\">");
-
             try {
-                string str_splitted = divContent.Split(@" <div class=""day-flex"">")[0];
-                divContents.Add(str_splitted);
+                // Split and add the content before "<div class=\"day-flex\">"
+                string strSplitted = divContent.Split(@" <div class=""day-flex"">")[0];
+                divc_ontents.Add(strSplitted);
             } catch (Exception e) {
                 Console.WriteLine(e.Message);
             }
         }
-        return divContents;
+        return divc_ontents;
     }
 
-    public WebScraper() {
-
-    }
-
-    public async Task<DayItem[]> ScrapeWebsiteAndProcess(string url) {
-
+    private async Task<DayItem[]> scrape_website_and_process(string url) {
         if (!(url.ToLower().Contains("/timetable/public/actual/") && url.Contains("bakalar"))) {
             throw new ArgumentException("The URL must be a valid Bakalari timetable URL.");
         }
         string searchString = "pink ";
-        var divContents = await ScrapeWebsite(url, searchString);
-        url.Replace("Actual", "Next");
-        var divContents_2 = await ScrapeWebsite(url, searchString);
-        divContents.AddRange(divContents_2);
+        var divc_ontents = await scrape_website(url, searchString);
+        url = url.Replace("Actual", "Next"); // Replace "Actual" with "Next" in the URL
+        var divc_ontents2 = await scrape_website(url, searchString);
+        divc_ontents.AddRange(divc_ontents2);
 
-        DayItem[] dayItems = new DayItem[divContents.Count];
+        DayItem[] dayItems = new DayItem[divc_ontents.Count];
         int counter = 0;
-        foreach (string idk in divContents) {
-            string help_str = ConvertTrashToReadableHtml(idk);
-            List<string> xd = help_str.Split(",NL").ToList();
+        foreach (string element in divc_ontents) {
+            string helpStr = convertUnreadableStringToReadable(element);
+            List<string> items = helpStr.Split(",NL").ToList();
 
-            foreach (string xdd in xd) {
-                if (xdd.Contains("subjecttext")) {
-                    List<string> help_list = xdd.Split("|").ToList();
-                    if (help_list.Count == 2) {//" ""subjecttext"":""út 5.12. "
-
-                        dayItems[counter].date = WebUtility.HtmlDecode(help_list[0]).Replace("\"subjecttext\":\"", "");
-                        dayItems[counter].hour = WebUtility.HtmlDecode(help_list[1]).Replace("\"end", "");
+            foreach (string item in items) {
+                if (item.Contains("subjecttext")) {
+                    List<string> helpList = item.Split("|").ToList();
+                    if (helpList.Count == 2) {
+                        // Extract subject and hour from the item
+                        dayItems[counter].Subject = WebUtility.HtmlDecode(helpList[0]).Replace("\"subjecttext\":\"", "");
+                        dayItems[counter].hour = WebUtility.HtmlDecode(helpList[1]).Replace("\"end", "");
+                    } else if (helpList.Count == 3) {
+                        // Extract subject, date, and hour from the item
+                        dayItems[counter].Subject = WebUtility.HtmlDecode(getValue(item, "subjecttext"));
+                        dayItems[counter].date = WebUtility.HtmlDecode(helpList[1]);
+                        dayItems[counter].hour = WebUtility.HtmlDecode(helpList[2]).Replace("\"end", "");
                     } else {
-                        dayItems[counter].Subject = WebUtility.HtmlDecode(GetValue(help_list[0], "subjecttext"));
-                        dayItems[counter].date = WebUtility.HtmlDecode(help_list[1]);
-                        dayItems[counter].hour = WebUtility.HtmlDecode(help_list[2]).Replace("\"end", "");
-
-
+                        throw new Exception("The timetable is not in the correct format. (internal error)");
                     }
                 }
-                if (xdd.Contains("teacher")) {
-                    dayItems[counter].Teacher = WebUtility.HtmlDecode(GetValue(xdd, "teacher"));
+                // Extract other properties from the item
+                if (item.Contains("teacher")) {
+                    dayItems[counter].Teacher = WebUtility.HtmlDecode(getValue(item, "teacher"));
                 }
-                if (xdd.Contains("room")) {
-                    dayItems[counter].Room = WebUtility.HtmlDecode(GetValue(xdd, "room"));
+                if (item.Contains("room")) {
+                    dayItems[counter].Room = WebUtility.HtmlDecode(getValue(item, "room"));
                 }
-                if (xdd.Contains("changeinfo")) {
-                    dayItems[counter].ChangeInfo = WebUtility.HtmlDecode(GetValue(xdd, "changeinfo"));
+                if (item.Contains("changeinfo")) {
+                    dayItems[counter].ChangeInfo = WebUtility.HtmlDecode(getValue(item, "changeinfo"));
                 }
-                if (xdd.Contains("removedinfo")) {
-                    dayItems[counter].ChangeInfo = WebUtility.HtmlDecode(GetValue(xdd, "removedinfo"));
+                if (item.Contains("removedinfo")) {
+                    dayItems[counter].ChangeInfo = WebUtility.HtmlDecode(getValue(item, "removedinfo"));
                 }
-                if (xdd.Contains("group")) {
-                    dayItems[counter].Group = WebUtility.HtmlDecode(GetValue(xdd, "group"));
+                if (item.Contains("group")) {
+                    dayItems[counter].Group = WebUtility.HtmlDecode(getValue(item, "group"));
                 }
             }
             counter++;
         }
-
         return dayItems;
     }
 
-    static string DecodeUnicodeEscapeSequences(string input) {
-        return Regex.Unescape(input);
-    }
-
-    static string ConvertTrashToReadableHtml(string trashString) {
-        // Replace escaped double quotes with actual double quotes
-        string unescapedString = trashString.Replace("&quot;", "\"");
-
-        // Use a regular expression to format the JSON-like content
-        string formattedJson = Regex.Replace(unescapedString, @"data-detail=""\{(.+?)\}""", m => {
-            string jsonContent = m.Groups[1].Value;
-            return $"data-detail='{jsonContent}'";
-        });
-
-        // Insert new lines for better readability
-        string indentedHtml = formattedJson.Replace(",\"", "end,NL \n\"");
-        indentedHtml = formattedJson.Replace(",\"", "end,NL \n\"");
+    private static string formatString(string input) {
+        // Format the input string
+        string indentedHtml = input.Replace(",\"", "end,NL \n\"");
         indentedHtml = indentedHtml.Replace("false", "\"false\"").Replace("null", "\"null\"").Replace("true", "\"true\"").Replace(":\"\"", ":\"null\"");
         indentedHtml = indentedHtml.Replace("<div class=\"day-item-hover  pink \" data-detail='{", "");
         indentedHtml = indentedHtml.Replace("}'>", "");
         indentedHtml = indentedHtml.Replace("\"null\"", "\"null\"end");
         indentedHtml = indentedHtml.Replace("<div class=\"day-item-hover  pink h-100\" data-detail='{", "");
-        // Add indentation to the div for better structure
-
         return indentedHtml;
     }
 
-    static string GetValue(string input, string key) {
+    private static string convertUnreadableStringToReadable(string unreadableString) {
+        // Replace escaped double quotes with actual double quotes
+        string unescapedString = unreadableString.Replace("&quot;", "\"");
+        // Format the JSON-like content
+        string formattedJson = Regex.Replace(unescapedString, @"data-detail=""\{(.+?)\}""", m => {
+            string jsonContent = m.Groups[1].Value;
+            return $"data-detail='{jsonContent}'";
+        });
+
+        // Clear unnecessary characters for readability
+        string returnString = formatString(formattedJson);
+        return returnString;
+    }
+
+    private static string getValue(string input, string key) {
+        // Extract the value corresponding to the given key
         string pattern = $@"""{key}"":""([^""]*)""";
         Match match = Regex.Match(input, pattern);
-
         return match.Success ? match.Groups[1].Value : null;
     }
 
-
-    // "subjecttext":"Operačn&#237; syst&#233;my a hardware | po 4.12. | 5 (11:50 - 12:35)"end
     public struct DayItem {
         public string Subject { get; set; }
         public string Teacher { get; set; }
